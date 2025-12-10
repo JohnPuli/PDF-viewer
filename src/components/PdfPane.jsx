@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import * as pdfjsLib from "pdfjs-dist/build/pdf";
-import workerUrl from "pdfjs-dist/build/pdf.worker?url";
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+import * as pdfjs from "pdfjs-dist/build/pdf";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.js",
+  import.meta.url
+).toString();
 
 export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.pdf", selectedChunk = null, onReady }) {
   const containerRef = useRef(null);
