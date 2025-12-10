@@ -1,12 +1,10 @@
-// src/components/PdfPane.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import * as pdfjs from "pdfjs-dist/build/pdf";
 
-/*
-  PdfPane:
-    - dynamically imports pdfjs at runtime so build doesn't attempt to resolve worker files
-    - expects /pdf.worker.js to exist in public/ (we copy it there during postinstall)
-    - highlights are computed using normalized bbox [x0,y0,x1,y1] (top-left origin)
-*/
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.js",
+  import.meta.url
+).toString();
 
 export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.pdf", selectedChunk = null, onReady }) {
   const containerRef = useRef(null);
@@ -18,28 +16,17 @@ export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.p
 
   useEffect(() => { latestSelected.current = selectedChunk; }, [selectedChunk]);
 
-  // load pdfjs dynamically at runtime and render pages
+  // load PDF
   useEffect(() => {
     let cancelled = false;
-    let pdfjsLib = null;
-
     (async () => {
       try {
-        // dynamic import ensures this code runs in browser and avoids build-time resolution issues
-        pdfjsLib = await import("pdfjs-dist/build/pdf");
-
-        // point worker to public static file that we copied into public/pdf.worker.js
-        // using absolute path /pdf.worker.js ensures it is served by the static host (Vercel)
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
-
         const loadingTask = pdfjsLib.getDocument(fileUrl);
         const doc = await loadingTask.promise;
         if (cancelled) return;
-
         const container = containerRef.current;
         container.innerHTML = "";
         const views = [];
-
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
           const scale = 1.0;
@@ -48,7 +35,6 @@ export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.p
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           canvas.style.display = "block";
-
           const ctx = canvas.getContext("2d");
           await page.render({ canvasContext: ctx, viewport }).promise;
 
@@ -63,14 +49,13 @@ export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.p
 
           views.push({ pageNumber: i, el: wrapper });
         }
-
         setPageViews(views);
         if (onReady) onReady({ numPages: doc.numPages });
       } catch (err) {
-        console.error("PdfPane runtime load/render error:", err);
+        console.error("PdfPane load error", err);
+        // show nothing; let dev console show errors
       }
     })();
-
     return () => { cancelled = true; };
   }, [fileUrl, onReady]);
 
@@ -95,7 +80,10 @@ export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.p
     requestAnimationFrame(() => {
       rafPending.current = false;
       const chunk = latestSelected.current;
-      if (!chunk) { setHighlights([]); return; }
+      if (!chunk) {
+        setHighlights([]);
+        return;
+      }
       const rects = computeRectsFromChunk(chunk);
       setHighlights(rects);
       if (rects.length) {
@@ -112,7 +100,10 @@ export default function PdfPane({ fileUrl = "/detailed_extraction_layer_report.p
     });
   }, [computeRectsFromChunk, pageViews]);
 
-  useEffect(() => { latestSelected.current = selectedChunk; scheduleRecompute(); }, [selectedChunk, scheduleRecompute]);
+  useEffect(() => {
+    latestSelected.current = selectedChunk;
+    scheduleRecompute();
+  }, [selectedChunk, scheduleRecompute]);
 
   useEffect(() => {
     const container = containerRef.current;
