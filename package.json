@@ -9,6 +9,7 @@
     "postinstall": "cp ./node_modules/pdfjs-dist/build/pdf.worker.js ./public/pdf.worker.js || true"
   },
   "dependencies": {
+    "pdfjs-dist": "^3.11.174",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
